@@ -345,7 +345,7 @@ function extractImage(document, url) {
 }
 
 function extractArticleText(document) {
-  // Skip elements that contain author information
+  // Skip elements that contain author information, dates, and metadata
   const skipSelectors = [
     '.author',
     '.byline',
@@ -356,7 +356,16 @@ function extractArticleText(document) {
     '.entry-meta',
     '.date',
     '.published',
-    '.timestamp'
+    '.timestamp',
+    '.publish-date',
+    '.post-date',
+    '.article-date',
+    '.time',
+    '.datetime',
+    '[datetime]',
+    'time',
+    '.updated',
+    '.modified'
   ]
 
   const contentSelectors = [
@@ -376,16 +385,24 @@ function extractArticleText(document) {
     for (const element of elements) {
       if (shouldSkipElement(element)) continue
 
-      // Remove author/meta elements from content extraction
+      // Remove author/meta/date elements from content extraction
       const clonedElement = element.cloneNode(true)
       skipSelectors.forEach((skipSelector) => {
         const elementsToRemove = clonedElement.querySelectorAll(skipSelector)
         elementsToRemove.forEach((el) => el.remove())
       })
 
+      // Also remove text patterns that look like dates
       const text = extractTextFromElement(clonedElement)
-      if (text.length > bestText.length) {
-        bestText = text
+      const cleanedText = text
+        .replace(/\d{1,2}\.\d{1,2}\.\d{4}/g, '') // Remove dates like "4.18.2024"
+        .replace(/\|\s*\d{1,2}\.\d{1,2}\.\d{4}/g, '') // Remove "| 4.18.2024"
+        .replace(/\d{1,2}\/\d{1,2}\/\d{4}/g, '') // Remove dates like "04/18/2024"
+        .replace(/\s{2,}/g, ' ') // Normalize multiple spaces
+        .trim()
+
+      if (cleanedText.length > bestText.length) {
+        bestText = cleanedText
       }
     }
   }
