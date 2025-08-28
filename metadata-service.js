@@ -415,16 +415,30 @@ function extractArticleText(document) {
 }
 
 function extractTextFromElement(element) {
+  // Get all paragraph text, ensuring double line breaks between paragraphs
   const paragraphs = element.querySelectorAll('p')
   let text = ''
 
   paragraphs.forEach((p) => {
     const pText = p.textContent || ''
     if (pText.trim().length > 20) {
+      // Add double line breaks between substantial paragraphs
       text += pText.trim() + '\n\n'
     }
   })
 
+  // If no good paragraphs found, try other block elements
+  if (text.length < 100) {
+    const blockElements = element.querySelectorAll('div, section, article')
+    blockElements.forEach((block) => {
+      const blockText = block.textContent || ''
+      if (blockText.trim().length > 50) {
+        text += blockText.trim() + '\n\n'
+      }
+    })
+  }
+
+  // Final fallback to element text content
   if (text.length < 100) {
     text = element.textContent || ''
   }
