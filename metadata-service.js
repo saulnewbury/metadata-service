@@ -195,6 +195,7 @@ async function scrapeWebsiteMetadata(url) {
       image: extractImage(document, url),
       description: extractDescription(document),
       excerpt: extractArticleText(document),
+      author: extractAuthors(document), // Add this line
       imageAspectRatio: 16 / 9,
       type: detectContentType(document, url),
       contentType:
@@ -240,7 +241,9 @@ function extractDescription(document) {
   const selectors = [
     'meta[property="og:description"]',
     'meta[name="twitter:description"]',
-    'meta[name="description"]'
+    'meta[name="description"]',
+    'meta[name="author"]',
+    'meta[property="article:author"]'
   ]
 
   for (const selector of selectors) {
@@ -254,6 +257,39 @@ function extractDescription(document) {
   }
 
   return null
+}
+
+function extractAuthors(document) {
+  const authorSelectors = [
+    'meta[name="author"]',
+    'meta[property="article:author"]',
+    'meta[name="twitter:creator"]',
+    '.author',
+    '.byline',
+    '[rel="author"]',
+    '.article-author',
+    '.post-author'
+  ]
+
+  const authors = new Set()
+
+  for (const selector of authorSelectors) {
+    const elements = document.querySelectorAll(selector)
+    for (const element of elements) {
+      const author = element.getAttribute('content') || element.textContent
+      if (author && author.trim()) {
+        // Clean up author names and split multiple authors
+        const authorNames = author
+          .split(/[,&]|and\s+/i)
+          .map((name) => name.trim())
+          .filter((name) => name.length > 0 && name.length < 100)
+
+        authorNames.forEach((name) => authors.add(name))
+      }
+    }
+  }
+
+  return Array.from(authors).slice(0, 3) // Limit to 3 authors
 }
 
 function extractImage(document, url) {
