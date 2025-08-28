@@ -262,6 +262,47 @@ function extractDescription(document) {
 function extractAuthors(document) {
   const authors = new Set()
 
+  // Debug: Log all elements that might contain author info
+  console.log('=== DEBUG: BBC Author Detection ===')
+
+  // Check for any element containing "author" in class or id
+  const authorElements = document.querySelectorAll(
+    '[class*="author"], [id*="author"], [class*="byline"], [id*="byline"]'
+  )
+  console.log(`Found ${authorElements.length} potential author elements:`)
+  authorElements.forEach((el, i) => {
+    console.log(
+      `${i}: ${el.tagName}.${el.className} = "${el.textContent
+        ?.trim()
+        .substring(0, 100)}"`
+    )
+  })
+
+  // Check specific BBC selectors
+  const bbcSelectors = [
+    '[data-testid*="author"]',
+    '[data-testid*="byline"]',
+    '.ssrcss-*[data-testid]', // BBC uses specific CSS classes
+    '.gel-*', // BBC's GEL framework classes
+    '.qa-contributor-name'
+  ]
+
+  bbcSelectors.forEach((selector) => {
+    try {
+      const elements = document.querySelectorAll(selector)
+      if (elements.length > 0) {
+        console.log(
+          `BBC selector "${selector}" found ${elements.length} elements:`
+        )
+        elements.forEach((el) =>
+          console.log(`  "${el.textContent?.trim().substring(0, 50)}"`)
+        )
+      }
+    } catch (e) {
+      // Invalid selector, skip
+    }
+  })
+
   // Try article-specific author selectors first (more reliable)
   const articleAuthorSelectors = [
     '.author-name',
@@ -319,6 +360,8 @@ function extractAuthors(document) {
       }
     }
   }
+
+  console.log(`Final authors found: ${Array.from(authors)}`)
 
   return Array.from(authors).slice(0, 3)
 }
