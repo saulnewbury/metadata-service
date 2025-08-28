@@ -260,36 +260,67 @@ function extractDescription(document) {
 }
 
 function extractAuthors(document) {
-  const authorSelectors = [
-    'meta[name="author"]',
-    'meta[property="article:author"]',
-    'meta[name="twitter:creator"]',
-    '.author',
-    '.byline',
-    '[rel="author"]',
-    '.article-author',
-    '.post-author'
-  ]
-
   const authors = new Set()
 
-  for (const selector of authorSelectors) {
+  // Try article-specific author selectors first (more reliable)
+  const articleAuthorSelectors = [
+    '.author-name',
+    '.byline-author',
+    '.article-author',
+    '.post-author',
+    '.writer-name',
+    '[data-author]',
+    '.byline .author',
+    '.article-byline .author'
+  ]
+
+  // Try these first as they're more specific to articles
+  for (const selector of articleAuthorSelectors) {
     const elements = document.querySelectorAll(selector)
     for (const element of elements) {
-      const author = element.getAttribute('content') || element.textContent
-      if (author && author.trim()) {
-        // Clean up author names and split multiple authors
-        const authorNames = author
-          .split(/[,&]|and\s+/i)
-          .map((name) => name.trim())
-          .filter((name) => name.length > 0 && name.length < 100)
-
-        authorNames.forEach((name) => authors.add(name))
+      const author = element.textContent || element.getAttribute('data-author')
+      if (author && author.trim() && !author.includes('facebook.com')) {
+        const cleanAuthor = author.trim().replace(/^By\s+/i, '')
+        if (cleanAuthor.length > 2 && cleanAuthor.length < 100) {
+          authors.add(cleanAuthor)
+        }
       }
     }
   }
 
-  return Array.from(authors).slice(0, 3) // Limit to 3 authors
+  // If we found authors from article selectors, return them
+  if (authors.size > 0) {
+    return Array.from(authors).slice(0, 3)
+  }
+
+  // Only if no article authors found, try meta tags (but filter out URLs)
+  const metaSelectors = [
+    'meta[name="author"]',
+    'meta[property="article:author"]',
+    'meta[name="twitter:creator"]'
+  ]
+
+  for (const selector of metaSelectors) {
+    const element = document.querySelector(selector)
+    if (element) {
+      const author = element.getAttribute('content')
+      if (
+        author &&
+        author.trim() &&
+        !author.includes('facebook.com') &&
+        !author.includes('twitter.com') &&
+        !author.startsWith('http') &&
+        !author.startsWith('@')
+      ) {
+        const cleanAuthor = author.trim().replace(/^By\s+/i, '')
+        if (cleanAuthor.length > 2 && cleanAuthor.length < 100) {
+          authors.add(cleanAuthor)
+        }
+      }
+    }
+  }
+
+  return Array.from(authors).slice(0, 3)
 }
 
 function extractImage(document, url) {
