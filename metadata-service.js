@@ -392,13 +392,17 @@ function extractArticleText(document) {
         elementsToRemove.forEach((el) => el.remove())
       })
 
-      // Also remove text patterns that look like dates
       const text = extractTextFromElement(clonedElement)
+
+      // Clean dates but preserve paragraph breaks
       const cleanedText = text
         .replace(/\d{1,2}\.\d{1,2}\.\d{4}/g, '') // Remove dates like "4.18.2024"
         .replace(/\|\s*\d{1,2}\.\d{1,2}\.\d{4}/g, '') // Remove "| 4.18.2024"
         .replace(/\d{1,2}\/\d{1,2}\/\d{4}/g, '') // Remove dates like "04/18/2024"
-        .replace(/\s{2,}/g, ' ') // Normalize multiple spaces
+        .replace(/\s+\n/g, '\n') // Clean up spaces before line breaks
+        .replace(/\n\s+/g, '\n') // Clean up spaces after line breaks
+        .replace(/[ \t]+/g, ' ') // Normalize only horizontal whitespace, keep line breaks
+        .replace(/\n{3,}/g, '\n\n') // Limit to double line breaks max
         .trim()
 
       if (cleanedText.length > bestText.length) {
