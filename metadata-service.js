@@ -262,48 +262,7 @@ function extractDescription(document) {
 function extractAuthors(document) {
   const authors = new Set()
 
-  // Debug: Log all elements that might contain author info
-  console.log('=== DEBUG: BBC Author Detection ===')
-
-  // Check for any element containing "author" in class or id
-  const authorElements = document.querySelectorAll(
-    '[class*="author"], [id*="author"], [class*="byline"], [id*="byline"]'
-  )
-  console.log(`Found ${authorElements.length} potential author elements:`)
-  authorElements.forEach((el, i) => {
-    console.log(
-      `${i}: ${el.tagName}.${el.className} = "${el.textContent
-        ?.trim()
-        .substring(0, 100)}"`
-    )
-  })
-
-  // Check specific BBC selectors
-  const bbcSelectors = [
-    '[data-testid*="author"]',
-    '[data-testid*="byline"]',
-    '.ssrcss-*[data-testid]', // BBC uses specific CSS classes
-    '.gel-*', // BBC's GEL framework classes
-    '.qa-contributor-name'
-  ]
-
-  bbcSelectors.forEach((selector) => {
-    try {
-      const elements = document.querySelectorAll(selector)
-      if (elements.length > 0) {
-        console.log(
-          `BBC selector "${selector}" found ${elements.length} elements:`
-        )
-        elements.forEach((el) =>
-          console.log(`  "${el.textContent?.trim().substring(0, 50)}"`)
-        )
-      }
-    } catch (e) {
-      // Invalid selector, skip
-    }
-  })
-
-  // Try article-specific author selectors first (more reliable)
+  // Try article-specific selectors first
   const articleAuthorSelectors = [
     '.author-name',
     '.byline-author',
@@ -315,55 +274,54 @@ function extractAuthors(document) {
     '.article-byline .author'
   ]
 
-  // Try these first as they're more specific to articles
   for (const selector of articleAuthorSelectors) {
     const elements = document.querySelectorAll(selector)
     for (const element of elements) {
       const author = element.textContent || element.getAttribute('data-author')
       if (author && author.trim() && !author.includes('facebook.com')) {
-        const cleanAuthor = author.trim().replace(/^By\s+/i, '')
-        if (cleanAuthor.length > 2 && cleanAuthor.length < 100) {
+        const cleanAuthor = cleanAuthorName(author.trim()) // Remove 'this.'
+        if (cleanAuthor && cleanAuthor.length > 2 && cleanAuthor.length < 50) {
           authors.add(cleanAuthor)
         }
       }
     }
   }
 
-  // If we found authors from article selectors, return them
-  if (authors.size > 0) {
-    return Array.from(authors).slice(0, 3)
-  }
+  // Meta tags as fallback
+  if (authors.size === 0) {
+    const metaSelectors = [
+      'meta[name="author"]',
+      'meta[property="article:author"]'
+    ]
 
-  // Only if no article authors found, try meta tags (but filter out URLs)
-  const metaSelectors = [
-    'meta[name="author"]',
-    'meta[property="article:author"]',
-    'meta[name="twitter:creator"]'
-  ]
-
-  for (const selector of metaSelectors) {
-    const element = document.querySelector(selector)
-    if (element) {
-      const author = element.getAttribute('content')
-      if (
-        author &&
-        author.trim() &&
-        !author.includes('facebook.com') &&
-        !author.includes('twitter.com') &&
-        !author.startsWith('http') &&
-        !author.startsWith('@')
-      ) {
-        const cleanAuthor = author.trim().replace(/^By\s+/i, '')
-        if (cleanAuthor.length > 2 && cleanAuthor.length < 100) {
-          authors.add(cleanAuthor)
+    for (const selector of metaSelectors) {
+      const element = document.querySelector(selector)
+      if (element) {
+        const author = element.getAttribute('content')
+        if (author && !author.includes('http') && !author.startsWith('@')) {
+          const cleanAuthor = cleanAuthorName(author.trim()) // Remove 'this.'
+          if (cleanAuthor && cleanAuthor.length < 50) {
+            authors.add(cleanAuthor)
+          }
         }
       }
     }
   }
-
-  console.log(`Final authors found: ${Array.from(authors)}`)
 
   return Array.from(authors).slice(0, 3)
+}
+
+function cleanAuthorName(rawAuthor) {
+  // Remove common prefixes
+  let cleaned = rawAuthor.replace(/^By\s+/i, '')
+
+  // Extract just the name part (before job titles, descriptions, etc.)
+  const namePart = cleaned.split(
+    /\s+is\s+|\s+works\s+|\s+writes\s+|\s+-\s+|\s+,\s+/i
+  )[0]
+
+  // Remove trailing punctuation and extra whitespace
+  return namePart.replace(/[.,;:]+$/, '').trim()
 }
 
 function extractImage(document, url) {
@@ -387,6 +345,20 @@ function extractImage(document, url) {
 }
 
 function extractArticleText(document) {
+  // Skip elements that contain author information
+  const skipSelectors = [
+    '.author',
+    '.byline',
+    '.post-author',
+    '.writer',
+    '.article-meta',
+    '.post-meta',
+    '.entry-meta',
+    '.date',
+    '.published',
+    '.timestamp'
+  ]
+
   const contentSelectors = [
     'article',
     'main',
@@ -404,28 +376,17 @@ function extractArticleText(document) {
     for (const element of elements) {
       if (shouldSkipElement(element)) continue
 
-      const text = extractTextFromElement(element)
+      // Remove author/meta elements from content extraction
+      const clonedElement = element.cloneNode(true)
+      skipSelectors.forEach((skipSelector) => {
+        const elementsToRemove = clonedElement.querySelectorAll(skipSelector)
+        elementsToRemove.forEach((el) => el.remove())
+      })
+
+      const text = extractTextFromElement(clonedElement)
       if (text.length > bestText.length) {
         bestText = text
       }
-    }
-  }
-
-  // Fallback to paragraphs if no main content found
-  if (bestText.length < 100) {
-    const paragraphs = document.querySelectorAll('p')
-    let paragraphText = ''
-
-    paragraphs.forEach((p) => {
-      if (shouldSkipElement(p.parentElement)) return
-      const text = p.textContent || ''
-      if (text.trim().length > 20) {
-        paragraphText += text.trim() + '\n\n'
-      }
-    })
-
-    if (paragraphText.length > bestText.length) {
-      bestText = paragraphText
     }
   }
 
