@@ -262,47 +262,70 @@ function extractDescription(document) {
 function extractAuthors(document) {
   const authors = new Set()
 
-  // Try article-specific selectors first
-  const articleAuthorSelectors = [
-    '.author-name',
-    '.byline-author',
-    '.article-author',
-    '.post-author',
-    '.writer-name',
-    '[data-author]',
-    '.byline .author',
-    '.article-byline .author'
+  // First try to find authors within the main article content only
+  const mainContentSelectors = [
+    'article',
+    'main',
+    '[role="main"]',
+    '.post-content',
+    '.entry-content',
+    '.article-content',
+    '.content'
   ]
 
-  for (const selector of articleAuthorSelectors) {
-    const elements = document.querySelectorAll(selector)
-    for (const element of elements) {
-      const author = element.textContent || element.getAttribute('data-author')
-      if (author && author.trim() && !author.includes('facebook.com')) {
-        const cleanAuthor = cleanAuthorName(author.trim()) // Remove 'this.'
-        if (cleanAuthor && cleanAuthor.length > 2 && cleanAuthor.length < 50) {
-          authors.add(cleanAuthor)
+  // Look for authors within main content areas first
+  for (const contentSelector of mainContentSelectors) {
+    const contentArea = document.querySelector(contentSelector)
+    if (contentArea) {
+      const articleAuthorSelectors = [
+        '.author-name',
+        '.byline-author',
+        '.article-author',
+        '.post-author',
+        '.writer-name',
+        '.byline .author',
+        '.article-byline .author'
+      ]
+
+      for (const selector of articleAuthorSelectors) {
+        const elements = contentArea.querySelectorAll(selector)
+        for (const element of elements) {
+          const author =
+            element.textContent || element.getAttribute('data-author')
+          if (author && author.trim()) {
+            const cleanAuthor = cleanAuthorName(author.trim())
+            if (
+              cleanAuthor &&
+              cleanAuthor.length > 2 &&
+              cleanAuthor.length < 50
+            ) {
+              authors.add(cleanAuthor)
+            }
+          }
         }
+      }
+
+      // If we found authors in main content, return them
+      if (authors.size > 0) {
+        return Array.from(authors).slice(0, 3)
       }
     }
   }
 
-  // Meta tags as fallback
-  if (authors.size === 0) {
-    const metaSelectors = [
-      'meta[name="author"]',
-      'meta[property="article:author"]'
-    ]
+  // Fallback to meta tags only if no authors found in content
+  const metaSelectors = [
+    'meta[name="author"]',
+    'meta[property="article:author"]'
+  ]
 
-    for (const selector of metaSelectors) {
-      const element = document.querySelector(selector)
-      if (element) {
-        const author = element.getAttribute('content')
-        if (author && !author.includes('http') && !author.startsWith('@')) {
-          const cleanAuthor = cleanAuthorName(author.trim()) // Remove 'this.'
-          if (cleanAuthor && cleanAuthor.length < 50) {
-            authors.add(cleanAuthor)
-          }
+  for (const selector of metaSelectors) {
+    const element = document.querySelector(selector)
+    if (element) {
+      const author = element.getAttribute('content')
+      if (author && !author.includes('http') && !author.startsWith('@')) {
+        const cleanAuthor = cleanAuthorName(author.trim())
+        if (cleanAuthor && cleanAuthor.length < 50) {
+          authors.add(cleanAuthor)
         }
       }
     }
