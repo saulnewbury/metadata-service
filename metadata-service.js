@@ -365,7 +365,20 @@ function extractArticleText(document) {
     '[datetime]',
     'time',
     '.updated',
-    '.modified'
+    '.modified',
+    // Add these image caption selectors:
+    'figcaption',
+    '.caption',
+    '.image-caption',
+    '.photo-caption',
+    '.img-caption',
+    '.figure-caption',
+    '.media-caption',
+    '.wp-caption-text',
+    '[data-caption]',
+    '.getty-caption',
+    '.image-credit',
+    '.photo-credit'
   ]
 
   const contentSelectors = [
@@ -396,13 +409,16 @@ function extractArticleText(document) {
 
       // Clean dates but preserve paragraph breaks
       const cleanedText = text
-        .replace(/\d{1,2}\.\d{1,2}\.\d{4}/g, '') // Remove dates like "4.18.2024"
-        .replace(/\|\s*\d{1,2}\.\d{1,2}\.\d{4}/g, '') // Remove "| 4.18.2024"
-        .replace(/\d{1,2}\/\d{1,2}\/\d{4}/g, '') // Remove dates like "04/18/2024"
-        .replace(/\s+\n/g, '\n') // Clean up spaces before line breaks
-        .replace(/\n\s+/g, '\n') // Clean up spaces after line breaks
-        .replace(/[ \t]+/g, ' ') // Normalize only horizontal whitespace, keep line breaks
-        .replace(/\n{3,}/g, '\n\n') // Limit to double line breaks max
+        .replace(/\d{1,2}\.\d{1,2}\.\d{4}/g, '')
+        .replace(/\|\s*\d{1,2}\.\d{1,2}\.\d{4}/g, '')
+        .replace(/\d{1,2}\/\d{1,2}\/\d{4}/g, '')
+        .replace(/\s+\n/g, '\n')
+        .replace(/\n\s+/g, '\n')
+        .replace(/[ \t]+/g, ' ')
+        .replace(/\n{3,}/g, '\n\n')
+        // Remove likely standalone captions (short lines that are just names/descriptions)
+        .replace(/\n[A-Z][a-z]+ [A-Z][a-z]+\n/g, '\n') // Removes "Firstname Lastname" lines
+        .replace(/\n.{1,30}\n(?=\n)/g, '\n') // Removes very short standalone lines
         .trim()
 
       if (cleanedText.length > bestText.length) {
