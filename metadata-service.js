@@ -1,4 +1,5 @@
 // metadata-service.js - Main Express server
+require('dotenv').config()
 const express = require('express')
 const { setupMiddleware } = require('./lib/middleware')
 const { setupRoutes } = require('./lib/routes')
